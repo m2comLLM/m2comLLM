@@ -24,7 +24,7 @@ class Settings(BaseSettings):
 
     # vLLM 설정
     vllm_base_url: str = Field(default="http://localhost:8000", description="vLLM 서버 URL")
-    vllm_model: str = Field(default="deepseek-ai/DeepSeek-R1-Distill-Qwen-32B", description="사용할 모델")
+    vllm_model: str = Field(default="deepseek-ai/DeepSeek-R1-Distill-Qwen-7B", description="사용할 모델")
 
     # 임베딩 모델 설정
     embedding_model: str = Field(default="BAAI/bge-m3", description="임베딩 모델 경로")
