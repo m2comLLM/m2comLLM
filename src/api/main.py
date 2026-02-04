@@ -15,6 +15,7 @@ import uuid
 from loguru import logger
 
 from src.agent.langgraph_agent import MedicalAgent
+from src.chatbot import EventChatbot, get_chatbot
 from src.config import settings
 
 app = FastAPI(
@@ -133,6 +134,11 @@ async def list_models() -> ModelList:
             ),
             ModelInfo(
                 id="deepseek-medical",
+                created=int(time.time()),
+                owned_by="local",
+            ),
+            ModelInfo(
+                id="event-chatbot",
                 created=int(time.time()),
                 owned_by="local",
             ),
@@ -369,6 +375,107 @@ async def get_patient_summary(request: PatientRequest):
         "diagnoses": diagnoses,
         "allergies": allergies,
     }
+
+
+# ============================================================================
+# 학술행사 챗봇 엔드포인트
+# ============================================================================
+
+class EventChatRequest(BaseModel):
+    query: str
+    model: str = "event-chatbot"
+
+
+class EventSearchRequest(BaseModel):
+    keyword: Optional[str] = None
+    start_date: Optional[str] = None
+    end_date: Optional[str] = None
+    location: Optional[str] = None
+    limit: int = 10
+
+
+class EventResponse(BaseModel):
+    response: str
+    events: Optional[List[dict]] = None
+
+
+@app.post("/v1/events/chat")
+async def event_chat(request: EventChatRequest) -> EventResponse:
+    """
+    학술행사 챗봇 API
+    자연어로 학술행사 정보를 질의
+    """
+    try:
+        chatbot = get_chatbot()
+        response = chatbot.chat(request.query)
+        return EventResponse(response=response)
+    except Exception as e:
+        logger.error(f"Event chat error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/v1/events/search")
+async def event_search(request: EventSearchRequest) -> EventResponse:
+    """
+    학술행사 검색 API
+    키워드, 날짜, 장소로 필터링
+    """
+    try:
+        chatbot = get_chatbot()
+        events = chatbot.search_events(
+            keyword=request.keyword,
+            start_date=request.start_date,
+            end_date=request.end_date,
+            location=request.location,
+            limit=request.limit,
+        )
+        formatted = chatbot.format_event_list(events)
+        return EventResponse(response=formatted, events=events)
+    except Exception as e:
+        logger.error(f"Event search error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/v1/events/upcoming")
+async def upcoming_events(days: int = 30, limit: int = 5) -> EventResponse:
+    """다가오는 행사 조회"""
+    try:
+        chatbot = get_chatbot()
+        events = chatbot.get_upcoming_events(days=days, limit=limit)
+        formatted = chatbot.format_event_list(events)
+        return EventResponse(response=formatted, events=events)
+    except Exception as e:
+        logger.error(f"Upcoming events error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/v1/events/registration-open")
+async def registration_open_events(limit: int = 10) -> EventResponse:
+    """등록 가능한 행사 조회"""
+    try:
+        chatbot = get_chatbot()
+        events = chatbot.get_registration_open_events(limit=limit)
+        formatted = chatbot.format_event_list(events)
+        return EventResponse(response=formatted, events=events)
+    except Exception as e:
+        logger.error(f"Registration events error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/v1/events/{event_name}")
+async def get_event_detail(event_name: str) -> EventResponse:
+    """행사 상세 정보 조회"""
+    try:
+        chatbot = get_chatbot()
+        event = chatbot.get_event_by_name(event_name)
+        if event:
+            formatted = chatbot.format_event(event)
+            return EventResponse(response=formatted, events=[event])
+        else:
+            return EventResponse(response="해당 행사를 찾을 수 없습니다.", events=[])
+    except Exception as e:
+        logger.error(f"Event detail error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 # ============================================================================

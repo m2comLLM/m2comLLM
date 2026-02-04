@@ -1,5 +1,7 @@
 """API 모듈"""
 
-from src.api.main import app, run_server
+# Lazy imports to avoid dependency issues
+# Use: from src.api.main import app
+# Or: from src.api.event_api import app
 
-__all__ = ["app", "run_server"]
+__all__ = ["main", "event_api"]
