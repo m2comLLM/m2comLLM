@@ -87,11 +87,54 @@ services:
     networks:
       - medical-rag
 
+  # Open WebUI
+  open-webui:
+    image: ghcr.io/open-webui/open-webui:main
+    container_name: open-webui
+    environment:
+      - OPENAI_API_BASE_URL=http://medical-api:8080/v1
+      - OPENAI_API_KEY=not-needed
+      - WEBUI_AUTH=false
+      - ENABLE_SIGNUP=true
+    volumes:
+      - open_webui_data:/app/backend/data
+    ports:
+      - "3000:8080"
+    depends_on:
+      - medical-api
+    networks:
+      - medical-rag
+
+  # Medical RAG API Server
+  medical-api:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.api
+    container_name: medical-api
+    environment:
+      - MILVUS_HOST=milvus
+      - MILVUS_PORT=19530
+      - ES_HOST=elasticsearch
+      - ES_PORT=9200
+      - VLLM_BASE_URL=http://host.docker.internal:8000
+    ports:
+      - "8080:8080"
+    depends_on:
+      milvus:
+        condition: service_healthy
+      elasticsearch:
+        condition: service_healthy
+    networks:
+      - medical-rag
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
 volumes:
   etcd_data:
   minio_data:
   milvus_data:
   es_data:
+  open_webui_data:
 
 networks:
   medical-rag:
